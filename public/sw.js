@@ -4,8 +4,8 @@ const CACHE_VERSION = "__BUILD_VERSION__";
 const CACHE_NAME = `habitflow-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
-  "/",
-  "/manifest.json",
+  "/daily-checklist/",
+  "/daily-checklist/manifest.json",
 ];
 
 // Install: cache static assets and immediately activate
@@ -49,15 +49,15 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/daily-checklist/")))
     );
     return;
   }
 
   // Cache-first for content-hashed static assets (_next/static, icons, fonts)
   if (
-    url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/daily-checklist/_next/static/") ||
+    url.pathname.startsWith("/daily-checklist/icons/") ||
     url.pathname.endsWith(".woff2") ||
     url.pathname.endsWith(".woff")
   ) {

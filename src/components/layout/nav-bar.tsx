@@ -64,7 +64,7 @@ export function Sidebar() {
         <Link href="/" className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/icons/icon-192.png"
+            src="/daily-checklist/icons/icon-192.png"
             alt="HabitFlow"
             width={36}
             height={36}

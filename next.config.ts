@@ -3,6 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: "export",
+  // GitHub Pages 部署在子路径 /daily-checklist/ 下，必须配 basePath，
+  // 否则 /_next 等资源会指向站点根路径而 404。
+  basePath: "/daily-checklist",
   images: {
     unoptimized: true,
   },

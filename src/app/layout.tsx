@@ -9,7 +9,9 @@ const THEME_COLOR_LIGHT = "#F4F4F0"; // Inkwell --ivory
 const THEME_COLOR_DARK = "#0F1018";  // Inkwell dark --ivory
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://habittracker.vinny.dev"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://joge-xi.github.io/daily-checklist/"
+  ),
   title: "HabitFlow",
   description:
     "用美观、私密的习惯追踪器记录你的每日习惯。",
@@ -53,7 +55,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/daily-checklist/icons/icon-192.png" />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem("habitflow-theme");var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme:dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light")}catch(e){}})()`,
@@ -88,7 +90,7 @@ export default function RootLayout({
             }}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/icon-192.png" alt="" width={72} height={72} />
+          <img src="/daily-checklist/icons/icon-192.png" alt="" width={72} height={72} />
           <div style={{ textAlign: "center" }}>
             <div className="splash-name">HabitFlow</div>
             <div className="splash-tagline">贵在坚持</div>

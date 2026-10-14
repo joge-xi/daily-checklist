@@ -1,25 +1,26 @@
 {
   "name": "HabitFlow",
   "short_name": "HabitFlow",
-  "description": "Track your daily habits with a beautiful, private habit tracker",
-  "start_url": "/",
+  "description": "用美观、私密的习惯追踪器记录你的每日习惯。你的数据只保存在你的设备上。",
+  "start_url": "/daily-checklist/",
+  "scope": "/daily-checklist/",
   "display": "standalone",
-  "background_color": "#f7f3ec",
-  "theme_color": "#2563eb",
+  "background_color": "#F4F4F0",
+  "theme_color": "#0F1018",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/daily-checklist/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/daily-checklist/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-maskable-512.png",
+      "src": "/daily-checklist/icons/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

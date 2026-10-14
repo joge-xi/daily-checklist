@@ -23,7 +23,8 @@ export function useServiceWorker(): UseServiceWorkerReturn {
     let intervalId: ReturnType<typeof setInterval> | undefined;
 
     navigator.serviceWorker
-      .register("/sw.js", {
+      .register("/daily-checklist/sw.js", {
+        scope: "/daily-checklist/",
         // Bypass browser HTTP cache when checking for SW updates.
         // Critical for Safari/iOS which aggressively caches sw.js.
         updateViaCache: "none",

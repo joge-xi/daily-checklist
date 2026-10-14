@@ -28,6 +28,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # 用提交 SHA 替换 sw.js 里的版本占位符，确保每次部署都能触发
+      # Service Worker 更新与旧缓存清理。
+      - name: Inject service worker build version
+        run: sed -i "s/__BUILD_VERSION__/${{ github.sha }}/g" public/sw.js
+
       - name: Build
         run: bun run build
 
