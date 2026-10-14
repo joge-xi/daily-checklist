@@ -57,12 +57,31 @@ export function EmptyState({
   );
 }
 
-export function NoHabitsEmpty() {
+export function NoHabitsEmpty({
+  variant = "today",
+}: {
+  variant?: "today" | "week" | "month";
+}) {
+  const copy = {
+    today: {
+      title: "开始养成更好的习惯",
+      description: "创建你的第一个习惯，开始记录你迈向更好生活的每一步。",
+    },
+    week: {
+      title: "本周还没有计划",
+      description: "创建习惯后，这里会按星期展示你本周的打卡安排。",
+    },
+    month: {
+      title: "本月还没有记录",
+      description: "创建习惯后，这里会显示整月的打卡日历。",
+    },
+  }[variant];
+
   return (
     <EmptyState
       icon={CalendarCheck}
-      title="开始养成更好的习惯"
-      description="创建你的第一个习惯，开始记录你迈向更好生活的每一步。"
+      title={copy.title}
+      description={copy.description}
       actionLabel="创建你的第一个习惯"
       actionHref="/habits/new"
     />

@@ -44,7 +44,7 @@ export function MonthView({
   }
 
   if (activeHabits.length === 0) {
-    return <NoHabitsEmpty />;
+    return <NoHabitsEmpty variant="month" />;
   }
 
   return (

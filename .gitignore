@@ -57,3 +57,4 @@ Thumbs.db
 
 # vercel (unused — deployed to S3/CloudFront)
 .vercel
+edge_err.log

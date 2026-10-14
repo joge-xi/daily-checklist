@@ -59,7 +59,7 @@ export function WeekView({
   }
 
   if (activeHabits.length === 0) {
-    return <NoHabitsEmpty />;
+    return <NoHabitsEmpty variant="week" />;
   }
 
   return (

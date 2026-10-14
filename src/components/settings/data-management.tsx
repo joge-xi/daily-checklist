@@ -32,21 +32,21 @@ const SAMPLE_IMPORTS = [
     id: "starter",
     label: "入门示例",
     description: "5 个习惯和约 30 天的记录",
-    href: "/sample-data/habitflow-sample-starter.json",
+    href: "/daily-checklist/sample-data/habitflow-sample-starter.json",
     icon: Sprout,
   },
   {
     id: "standard",
     label: "标准示例",
     description: "13 个习惯和约 5 个月的记录",
-    href: "/sample-data/habitflow-sample-standard.json",
+    href: "/daily-checklist/sample-data/habitflow-sample-standard.json",
     icon: Layers3,
   },
   {
     id: "power",
     label: "进阶用户示例",
     description: "26 个习惯和约 1 年的记录",
-    href: "/sample-data/habitflow-sample-power-user.json",
+    href: "/daily-checklist/sample-data/habitflow-sample-power-user.json",
     icon: Rocket,
   },
 ] as const;
@@ -153,7 +153,7 @@ export function DataManagement() {
       await applyImport(importPreview.data);
       toast("数据导入成功");
       setImportPreview(null);
-      window.location.href = "/";
+      window.location.href = "/daily-checklist/";
     } catch (error) {
       logger.error("Failed to import data:", error);
       toast("数据导入失败", "error");
@@ -164,7 +164,7 @@ export function DataManagement() {
     try {
       await clearAllData();
       toast("所有数据已清空");
-      window.location.href = "/";
+      window.location.href = "/daily-checklist/";
     } catch (error) {
       logger.error("Failed to clear data:", error);
       toast("清空数据失败", "error");
