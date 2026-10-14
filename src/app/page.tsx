@@ -1,0 +1,130 @@
+"use client";
+
+import { useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { PageContainer } from "@/components/layout/page-container";
+import { Header } from "@/components/layout/header";
+import { TodayView } from "@/components/dashboard/today-view";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fadeUpItem, staggerContainer } from "@/components/shared/motion";
+import { useHabits } from "@/hooks/use-habits";
+import { useCompletions } from "@/hooks/use-completions";
+import { useToday } from "@/hooks/use-today";
+import { useSettings } from "@/hooks/use-settings";
+import { useStreaks } from "@/hooks/use-streaks";
+import { useChains } from "@/hooks/use-chains";
+import { useKeyboardShortcuts, type ShortcutConfig } from "@/hooks/use-keyboard-shortcuts";
+import { isHabitScheduledForDate } from "@/lib/date-utils";
+import { format, parseISO } from "date-fns";
+import { zhCN } from "date-fns/locale";
+
+const MAX_DIGIT_SHORTCUTS = 9;
+const AFTERNOON_HOUR = 12;
+const EVENING_HOUR = 18;
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < AFTERNOON_HOUR) return "早上好";
+  if (hour < EVENING_HOUR) return "下午好";
+  return "晚上好";
+}
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const today = useToday();
+  const { habits, loading: habitsLoading } = useHabits();
+  const { completions, loading: completionsLoading, toggle, isCompleted, getCompletionId, getCompletionValue, updateEffort, updateValue } =
+    useCompletions(today);
+  const { settings, loading: settingsLoading } = useSettings();
+  const showStreaks = settings?.showStreaks ?? true;
+  const showCompletionRate = settings?.showCompletionRate ?? true;
+  const { streakMap } = useStreaks(habits, today);
+  const { chains } = useChains();
+
+  const formatted = `${getGreeting()} — ${format(parseISO(today), "EEEE, MMMM d", { locale: zhCN })}`;
+
+  const scheduledHabits = useMemo(
+    () =>
+      habits
+        .filter((h) => !h.isArchived && isHabitScheduledForDate(h, today))
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [habits, today]
+  );
+
+  const digitShortcuts = useMemo<ShortcutConfig[]>(
+    () =>
+      scheduledHabits.slice(0, MAX_DIGIT_SHORTCUTS).map((habit, i) => ({
+        key: String(i + 1),
+        handler: () => toggle(habit.id),
+      })),
+    [scheduledHabits, toggle]
+  );
+
+  useKeyboardShortcuts(digitShortcuts);
+
+  // Drive the ambient background warmth based on daily completion progress
+  const completedCount = scheduledHabits.filter((h) => isCompleted(h.id)).length;
+  const progressWarmth = scheduledHabits.length > 0
+    ? completedCount / scheduledHabits.length
+    : 0;
+
+  useEffect(() => {
+    document.body.style.setProperty("--progress-warmth", String(progressWarmth));
+    return () => { document.body.style.removeProperty("--progress-warmth"); };
+  }, [progressWarmth]);
+
+  useEffect(() => {
+    if (!settings || settings.defaultView === "today") return;
+    router.replace(`/${settings.defaultView}`);
+  }, [router, settings]);
+
+  if (settingsLoading || (settings?.defaultView != null && settings.defaultView !== "today")) {
+    return (
+      <PageContainer>
+        <div className="space-y-4">
+          <Skeleton className="h-24 rounded-3xl" />
+          <Skeleton className="h-64 rounded-3xl" />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <PageContainer>
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div variants={fadeUpItem}>
+            <Header
+              title="今天"
+              subtitle={formatted}
+              eyebrow="今日专注"
+              accentColor="var(--accent-blue)"
+            />
+          </motion.div>
+          <TodayView
+            habits={habits}
+            completions={completions}
+            chains={chains}
+            today={today}
+            loading={habitsLoading || completionsLoading}
+            onToggle={toggle}
+            onEffort={updateEffort}
+            onValueChange={updateValue}
+            isCompleted={isCompleted}
+            getCompletionId={getCompletionId}
+            getCompletionValue={getCompletionValue}
+            showStreaks={showStreaks}
+            showCompletionRate={showCompletionRate}
+            streakMap={streakMap}
+          />
+        </motion.div>
+      </PageContainer>
+    </ErrorBoundary>
+  );
+}

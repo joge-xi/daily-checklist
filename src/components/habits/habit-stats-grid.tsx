@@ -1,0 +1,116 @@
+"use client";
+
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Flame, Trophy, Hash, TrendingUp } from "lucide-react";
+import type { HabitStats } from "@/hooks/use-habit-stats";
+import { cn } from "@/lib/utils";
+
+interface HabitStatsGridProps {
+  stats: HabitStats;
+  color: string;
+  loading: boolean;
+  averageEffort?: number | null;
+  showCompletionRate?: boolean;
+}
+
+interface StatItemProps {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  label: string;
+  value: string | number;
+  color: string;
+}
+
+function StatItem({ icon: Icon, label, value, color }: StatItemProps) {
+  return (
+    <Card className="relative overflow-hidden py-4">
+      <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: color, opacity: 0.7 }} />
+      <div className="flex items-start gap-3">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle"
+          style={{ backgroundColor: `${color}14` }}
+        >
+          <Icon className="h-5 w-5" style={{ color }} />
+        </div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">{label}</div>
+          <div className="mt-1 text-2xl font-bold text-text-primary">{value}</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+export function HabitStatsGrid({
+  stats,
+  color,
+  loading,
+  averageEffort,
+  showCompletionRate = true,
+}: HabitStatsGridProps) {
+  const showEffort = averageEffort != null;
+  const columns = 3 + Number(showCompletionRate) + Number(showEffort);
+
+  if (loading) {
+    return (
+      <div
+        className={cn(
+          "grid grid-cols-2 gap-3",
+          columns === 5 && "sm:grid-cols-5",
+          columns === 4 && "sm:grid-cols-4",
+          columns === 3 && "sm:grid-cols-3"
+        )}
+      >
+        {Array.from({ length: columns }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-2xl" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-3",
+        columns === 5 && "sm:grid-cols-5",
+        columns === 4 && "sm:grid-cols-4",
+        columns === 3 && "sm:grid-cols-3"
+      )}
+    >
+      <StatItem
+        icon={Flame}
+        label="当前连续"
+        value={stats.currentStreak}
+        color={color}
+      />
+      <StatItem
+        icon={Trophy}
+        label="最佳连续"
+        value={stats.bestStreak}
+        color={color}
+      />
+      <StatItem
+        icon={Hash}
+        label="总计"
+        value={stats.totalCompletions}
+        color={color}
+      />
+      {showCompletionRate && (
+        <StatItem
+          icon={TrendingUp}
+          label="完成率"
+          value={`${stats.completionRate}%`}
+          color={color}
+        />
+      )}
+      {showEffort && (
+        <StatItem
+          icon={Flame}
+          label="平均努力"
+          value={`${averageEffort}/5`}
+          color="var(--accent-amber)"
+        />
+      )}
+    </div>
+  );
+}

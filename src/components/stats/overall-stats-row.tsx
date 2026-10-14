@@ -1,0 +1,113 @@
+"use client";
+
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Activity, TrendingUp, Flame, Hash } from "lucide-react";
+import { AnimatedCounter } from "@/components/shared/AnimatedCounter";
+import { cn } from "@/lib/utils";
+import type { OverallStatsResult } from "@/lib/stats-utils";
+
+interface OverallStatsRowProps {
+  stats: OverallStatsResult;
+  loading: boolean;
+  showCompletionRate?: boolean;
+}
+
+interface StatCardProps {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  label: string;
+  value: number;
+  suffix?: string;
+  accent: string;
+  index: number;
+}
+
+const STAGGER_DELAY_MS = 60;
+
+function StatCard({ icon: Icon, label, value, suffix, accent, index }: StatCardProps) {
+  return (
+    <Card
+      className="relative overflow-hidden py-4 animate-stagger-in"
+      style={{ animationDelay: `${index * STAGGER_DELAY_MS}ms` }}
+    >
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-1"
+        style={{ backgroundColor: accent, opacity: 0.7 }}
+      />
+      <div className="flex items-start gap-3">
+      <div
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle"
+        style={{ backgroundColor: "var(--surface-tint)" }}
+      >
+        <Icon className="h-5 w-5" style={{ color: accent }} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">{label}</div>
+        <div className="mt-1 text-2xl font-bold text-text-primary">
+          <AnimatedCounter value={value} suffix={suffix} />
+        </div>
+      </div>
+      </div>
+    </Card>
+  );
+}
+
+export function OverallStatsRow({
+  stats,
+  loading,
+  showCompletionRate = true,
+}: OverallStatsRowProps) {
+  const columns = showCompletionRate ? 4 : 3;
+
+  if (loading) {
+    return (
+      <div
+        className={cn(
+          "grid grid-cols-2 gap-3",
+          showCompletionRate ? "sm:grid-cols-4" : "sm:grid-cols-3"
+        )}
+      >
+        {Array.from({ length: columns }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-2xl" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`grid grid-cols-2 gap-3 ${showCompletionRate ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+      <StatCard
+        icon={Activity}
+        label="进行中的习惯"
+        value={stats.totalActiveHabits}
+        accent="var(--chart-1)"
+        index={0}
+      />
+      {showCompletionRate && (
+        <StatCard
+          icon={TrendingUp}
+          label="完成率"
+          value={stats.overallCompletionRate}
+          suffix="%"
+          accent="var(--chart-2)"
+          index={1}
+        />
+      )}
+      <StatCard
+        icon={Flame}
+        label="最佳连续"
+        value={stats.bestCurrentStreak}
+        accent="var(--chart-4)"
+        index={showCompletionRate ? 2 : 1}
+      />
+      <StatCard
+        icon={Hash}
+        label="总完成次数"
+        value={stats.totalCompletions}
+        accent="var(--chart-3)"
+        index={showCompletionRate ? 3 : 2}
+      />
+    </div>
+  );
+}

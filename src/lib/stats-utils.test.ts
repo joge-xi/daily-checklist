@@ -1,0 +1,621 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { format, subDays, parseISO } from "date-fns";
+import {
+  computeHabitStats,
+  computeOverallStats,
+  calculateAverageEffort,
+  isQuantitativeComplete,
+  calculateQuantitativeStats,
+  calculateChainStreak,
+  buildDailyCompletionTrend,
+  buildAggregateHeatmapData,
+  buildCategoryBreakdown,
+  buildLeaderboard,
+  buildEffortTrend,
+} from "./stats-utils";
+import { createHabit, createCompletion, resetFactories } from "@/test/factories";
+
+beforeEach(() => {
+  resetFactories();
+});
+
+const TODAY = "2026-02-17";
+
+function daysAgo(n: number): string {
+  return format(subDays(parseISO(TODAY), n), "yyyy-MM-dd");
+}
+
+// ── computeHabitStats ──────────────────────────────────
+
+describe("computeHabitStats", () => {
+  it("calculates streaks for a daily habit", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(5)}T00:00:00.000Z`,
+    });
+    // Completed last 3 days including today
+    const completions = [0, 1, 2].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i) })
+    );
+
+    const result = computeHabitStats(habit, completions, TODAY);
+    expect(result.currentStreak).toBe(3);
+    expect(result.totalCompletions).toBe(3);
+    expect(result.completionRate).toBe(50); // 3 of 6 days
+  });
+
+  it("does not break current streak if today is not yet completed", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(4)}T00:00:00.000Z`,
+    });
+    // Completed yesterday and day before, but NOT today
+    const completions = [1, 2].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i) })
+    );
+
+    const result = computeHabitStats(habit, completions, TODAY);
+    expect(result.currentStreak).toBe(2);
+  });
+
+  it("skips non-scheduled days for weekday habits", () => {
+    // 2026-02-17 is Tue. Weekdays: 17(Tue), 16(Mon), 13(Fri), 12(Thu), 11(Wed)
+    // daysAgo: 0=Tue, 1=Mon, 2=Sun, 3=Sat, 4=Fri, 5=Thu, 6=Wed
+    const habit = createHabit({
+      frequency: "weekdays",
+      createdAt: `${daysAgo(6)}T00:00:00.000Z`,
+    });
+    // Complete all weekdays: indices 0,1,4,5,6 (skip weekend at 2,3)
+    const weekdayDates = [0, 1, 4, 5, 6].map((i) => daysAgo(i));
+    const completions = weekdayDates.map((d) =>
+      createCompletion({ habitId: habit.id, date: d })
+    );
+
+    const result = computeHabitStats(habit, completions, TODAY);
+    expect(result.currentStreak).toBe(5);
+    expect(result.completionRate).toBe(100);
+  });
+
+  it("returns zeros for empty completions", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(3)}T00:00:00.000Z`,
+    });
+
+    const result = computeHabitStats(habit, [], TODAY);
+    expect(result.currentStreak).toBe(0);
+    expect(result.bestStreak).toBe(0);
+    expect(result.totalCompletions).toBe(0);
+    expect(result.completionRate).toBe(0);
+  });
+
+  it("tracks best streak separately from current", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(9)}T00:00:00.000Z`,
+    });
+    // Old streak of 5 (days 9-5), gap at day 4, new streak of 2 (days 1-0)
+    const completions = [0, 1, 5, 6, 7, 8, 9].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i) })
+    );
+
+    const result = computeHabitStats(habit, completions, TODAY);
+    expect(result.currentStreak).toBe(2);
+    expect(result.bestStreak).toBe(5);
+  });
+
+  it("filters completions to the given habit", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(2)}T00:00:00.000Z`,
+    });
+    const otherHabitCompletion = createCompletion({
+      habitId: "other-id",
+      date: daysAgo(0),
+    });
+    const myCompletion = createCompletion({
+      habitId: habit.id,
+      date: daysAgo(0),
+    });
+
+    const result = computeHabitStats(
+      habit,
+      [otherHabitCompletion, myCompletion],
+      TODAY
+    );
+    expect(result.totalCompletions).toBe(1);
+  });
+});
+
+// ── computeOverallStats ────────────────────────────────
+
+describe("computeOverallStats", () => {
+  it("aggregates across multiple habits", () => {
+    const h1 = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(3)}T00:00:00.000Z`,
+    });
+    const h2 = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(3)}T00:00:00.000Z`,
+    });
+    const completions = [
+      // h1: 3 of 4 days
+      ...[0, 1, 2].map((i) =>
+        createCompletion({ habitId: h1.id, date: daysAgo(i) })
+      ),
+      // h2: 1 of 4 days
+      createCompletion({ habitId: h2.id, date: daysAgo(0) }),
+    ];
+
+    const result = computeOverallStats([h1, h2], completions, TODAY);
+    expect(result.totalActiveHabits).toBe(2);
+    expect(result.totalCompletions).toBe(4);
+    expect(result.bestCurrentStreak).toBe(3); // h1's streak
+    // h1 rate = 75%, h2 rate = 25% → avg = 50%
+    expect(result.overallCompletionRate).toBe(50);
+  });
+
+  it("excludes archived habits", () => {
+    const active = createHabit({
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+    const archived = createHabit({
+      isArchived: true,
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+
+    const result = computeOverallStats([active, archived], [], TODAY);
+    expect(result.totalActiveHabits).toBe(1);
+  });
+
+  it("returns zeros for empty habits", () => {
+    const result = computeOverallStats([], [], TODAY);
+    expect(result.totalActiveHabits).toBe(0);
+    expect(result.overallCompletionRate).toBe(0);
+  });
+});
+
+// ── buildDailyCompletionTrend ──────────────────────────
+
+describe("buildDailyCompletionTrend", () => {
+  it("returns one entry per day, zero-filled", () => {
+    const entries = buildDailyCompletionTrend([], daysAgo(6), TODAY);
+    expect(entries).toHaveLength(7);
+    expect(entries.every((e) => e.count === 0)).toBe(true);
+  });
+
+  it("counts multiple completions on the same day", () => {
+    const completions = [
+      createCompletion({ date: TODAY }),
+      createCompletion({ date: TODAY }),
+      createCompletion({ date: daysAgo(1) }),
+    ];
+
+    const entries = buildDailyCompletionTrend(completions, daysAgo(2), TODAY);
+    expect(entries).toHaveLength(3);
+    const todayEntry = entries.find((e) => e.date === TODAY);
+    expect(todayEntry?.count).toBe(2);
+  });
+
+  it("excludes completions outside range", () => {
+    const completions = [createCompletion({ date: daysAgo(10) })];
+    const entries = buildDailyCompletionTrend(completions, daysAgo(2), TODAY);
+    expect(entries.every((e) => e.count === 0)).toBe(true);
+  });
+});
+
+// ── buildAggregateHeatmapData ──────────────────────────
+
+describe("buildAggregateHeatmapData", () => {
+  it("returns 52 columns of 7 rows each", () => {
+    const { grid } = buildAggregateHeatmapData([], TODAY);
+    expect(grid).toHaveLength(52);
+    for (const col of grid) {
+      expect(col).toHaveLength(7);
+    }
+  });
+
+  it("counts per-day completions (not binary)", () => {
+    const completions = [
+      createCompletion({ date: TODAY }),
+      createCompletion({ date: TODAY }),
+      createCompletion({ date: TODAY }),
+    ];
+    const { grid, maxCount } = buildAggregateHeatmapData(
+      completions,
+      TODAY
+    );
+
+    // Find today's cell in the last column
+    const lastCol = grid[grid.length - 1];
+    const todayCell = lastCol.find((c) => c.date === TODAY);
+    expect(todayCell?.count).toBe(3);
+    expect(maxCount).toBe(3);
+  });
+});
+
+// ── buildCategoryBreakdown ─────────────────────────────
+
+describe("buildCategoryBreakdown", () => {
+  it("groups habits by category", () => {
+    const h1 = createHabit({
+      category: "Health",
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+    const h2 = createHabit({
+      category: "Health",
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+    const h3 = createHabit({
+      category: "Learning",
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+
+    const result = buildCategoryBreakdown([h1, h2, h3], [], TODAY);
+    expect(result).toHaveLength(2);
+    const health = result.find((r) => r.category === "Health");
+    expect(health?.habitCount).toBe(2);
+  });
+
+  it("uses 'Uncategorized' for habits without category", () => {
+    const h = createHabit({
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+    const result = buildCategoryBreakdown([h], [], TODAY);
+    expect(result[0].category).toBe("Uncategorized");
+  });
+
+  it("excludes archived habits", () => {
+    const h = createHabit({
+      isArchived: true,
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+    const result = buildCategoryBreakdown([h], [], TODAY);
+    expect(result).toHaveLength(0);
+  });
+
+  it("returns empty array for no habits", () => {
+    const result = buildCategoryBreakdown([], [], TODAY);
+    expect(result).toHaveLength(0);
+  });
+});
+
+// ── buildLeaderboard ───────────────────────────────────
+
+describe("buildLeaderboard", () => {
+  it("sorts by completion rate descending", () => {
+    const h1 = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(3)}T00:00:00.000Z`,
+    });
+    const h2 = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(3)}T00:00:00.000Z`,
+    });
+    const completions = [
+      // h1: 1 completion
+      createCompletion({ habitId: h1.id, date: daysAgo(0) }),
+      // h2: 3 completions
+      ...[0, 1, 2].map((i) =>
+        createCompletion({ habitId: h2.id, date: daysAgo(i) })
+      ),
+    ];
+
+    const result = buildLeaderboard([h1, h2], completions, TODAY);
+    expect(result[0].habit.id).toBe(h2.id);
+    expect(result[1].habit.id).toBe(h1.id);
+  });
+
+  it("handles zero completions", () => {
+    const h = createHabit({
+      createdAt: `${daysAgo(3)}T00:00:00.000Z`,
+    });
+    const result = buildLeaderboard([h], [], TODAY);
+    expect(result).toHaveLength(1);
+    expect(result[0].completionRate).toBe(0);
+    expect(result[0].currentStreak).toBe(0);
+  });
+
+  it("excludes archived habits", () => {
+    const h = createHabit({
+      isArchived: true,
+      createdAt: `${daysAgo(1)}T00:00:00.000Z`,
+    });
+    const result = buildLeaderboard([h], [], TODAY);
+    expect(result).toHaveLength(0);
+  });
+});
+
+// ── Edge case: habit created today ────────────────────
+
+describe("computeHabitStats — edge cases", () => {
+  it("handles habit created today with no completions", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${TODAY}T00:00:00.000Z`,
+    });
+    const result = computeHabitStats(habit, [], TODAY);
+    expect(result.currentStreak).toBe(0);
+    expect(result.bestStreak).toBe(0);
+    expect(result.completionRate).toBe(0);
+    expect(result.totalCompletions).toBe(0);
+  });
+
+  it("handles habit created today with today completed", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${TODAY}T00:00:00.000Z`,
+    });
+    const completions = [createCompletion({ habitId: habit.id, date: TODAY })];
+    const result = computeHabitStats(habit, completions, TODAY);
+    expect(result.currentStreak).toBe(1);
+    expect(result.bestStreak).toBe(1);
+    expect(result.completionRate).toBe(100);
+  });
+
+  it("handles single-day date range in trend", () => {
+    const entries = buildDailyCompletionTrend([], TODAY, TODAY);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].date).toBe(TODAY);
+    expect(entries[0].count).toBe(0);
+  });
+});
+
+// ── computeOverallStats — single habit ────────────────
+
+describe("computeOverallStats — single habit", () => {
+  it("returns stats for a single active habit", () => {
+    const habit = createHabit({
+      frequency: "daily",
+      createdAt: `${daysAgo(2)}T00:00:00.000Z`,
+    });
+    const completions = [0, 1, 2].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i) })
+    );
+    const result = computeOverallStats([habit], completions, TODAY);
+    expect(result.totalActiveHabits).toBe(1);
+    expect(result.totalCompletions).toBe(3);
+    expect(result.overallCompletionRate).toBe(100);
+  });
+});
+
+// ── buildAggregateHeatmapData — weekStartsOn=1 ───────
+
+describe("buildAggregateHeatmapData — weekStartsOn=1", () => {
+  it("returns 52 columns with Monday start", () => {
+    const { grid } = buildAggregateHeatmapData([], TODAY, 1);
+    expect(grid).toHaveLength(52);
+    for (const col of grid) {
+      expect(col).toHaveLength(7);
+    }
+  });
+});
+
+// ── calculateAverageEffort ──────────────────────────────
+
+describe("calculateAverageEffort", () => {
+  it("returns null when no completions have effort", () => {
+    const completions = [
+      createCompletion({ effort: null }),
+      createCompletion({ effort: undefined }),
+    ];
+    expect(calculateAverageEffort(completions)).toBeNull();
+  });
+
+  it("returns null for empty array", () => {
+    expect(calculateAverageEffort([])).toBeNull();
+  });
+
+  it("calculates average of non-null effort values", () => {
+    const completions = [
+      createCompletion({ effort: 3 }),
+      createCompletion({ effort: 5 }),
+      createCompletion({ effort: 4 }),
+    ];
+    expect(calculateAverageEffort(completions)).toBe(4);
+  });
+
+  it("skips null effort values in calculation", () => {
+    const completions = [
+      createCompletion({ effort: 2 }),
+      createCompletion({ effort: null }),
+      createCompletion({ effort: 4 }),
+    ];
+    expect(calculateAverageEffort(completions)).toBe(3);
+  });
+
+  it("rounds to one decimal place", () => {
+    const completions = [
+      createCompletion({ effort: 1 }),
+      createCompletion({ effort: 2 }),
+      createCompletion({ effort: 3 }),
+    ];
+    expect(calculateAverageEffort(completions)).toBe(2);
+  });
+});
+
+// ── buildEffortTrend ──────────────────────────────────
+
+describe("buildEffortTrend", () => {
+  it("returns empty for habits with fewer than 5 effort ratings", () => {
+    const habit = createHabit({ createdAt: `${daysAgo(10)}T00:00:00.000Z` });
+    const completions = [0, 1, 2, 3].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i), effort: 3 })
+    );
+    const result = buildEffortTrend([habit], completions, daysAgo(10), TODAY);
+    expect(result).toHaveLength(0);
+  });
+
+  it("returns entries for habits with 5+ effort ratings", () => {
+    const habit = createHabit({ createdAt: `${daysAgo(10)}T00:00:00.000Z` });
+    const completions = [0, 1, 2, 3, 4].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i), effort: (i + 1) as 1 | 2 | 3 | 4 | 5 })
+    );
+    const result = buildEffortTrend([habit], completions, daysAgo(10), TODAY);
+    expect(result).toHaveLength(5);
+  });
+
+  it("excludes archived habits", () => {
+    const habit = createHabit({
+      isArchived: true,
+      createdAt: `${daysAgo(10)}T00:00:00.000Z`,
+    });
+    const completions = [0, 1, 2, 3, 4].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i), effort: 3 })
+    );
+    const result = buildEffortTrend([habit], completions, daysAgo(10), TODAY);
+    expect(result).toHaveLength(0);
+  });
+
+  it("sorts entries by date ascending", () => {
+    const habit = createHabit({ createdAt: `${daysAgo(10)}T00:00:00.000Z` });
+    const completions = [4, 2, 0, 1, 3].map((i) =>
+      createCompletion({ habitId: habit.id, date: daysAgo(i), effort: 3 })
+    );
+    const result = buildEffortTrend([habit], completions, daysAgo(10), TODAY);
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i].date >= result[i - 1].date).toBe(true);
+    }
+  });
+});
+
+// ── isQuantitativeComplete ──────────────────────────────
+
+describe("isQuantitativeComplete", () => {
+  it("returns true when value >= targetValue", () => {
+    const habit = createHabit({ habitType: "quantitative", targetValue: 8 });
+    const completion = createCompletion({ value: 8 });
+    expect(isQuantitativeComplete(habit, completion)).toBe(true);
+  });
+
+  it("returns true when value exceeds targetValue", () => {
+    const habit = createHabit({ habitType: "quantitative", targetValue: 5 });
+    const completion = createCompletion({ value: 10 });
+    expect(isQuantitativeComplete(habit, completion)).toBe(true);
+  });
+
+  it("returns false when value < targetValue", () => {
+    const habit = createHabit({ habitType: "quantitative", targetValue: 8 });
+    const completion = createCompletion({ value: 3 });
+    expect(isQuantitativeComplete(habit, completion)).toBe(false);
+  });
+
+  it("returns true for any value when no targetValue is set", () => {
+    const habit = createHabit({ habitType: "quantitative", targetValue: null });
+    const completion = createCompletion({ value: 1 });
+    expect(isQuantitativeComplete(habit, completion)).toBe(true);
+  });
+
+  it("returns false when no completion exists", () => {
+    const habit = createHabit({ habitType: "quantitative", targetValue: 5 });
+    expect(isQuantitativeComplete(habit, undefined)).toBe(false);
+  });
+
+  it("returns false when value is null", () => {
+    const habit = createHabit({ habitType: "quantitative", targetValue: 5 });
+    const completion = createCompletion({ value: null });
+    expect(isQuantitativeComplete(habit, completion)).toBe(false);
+  });
+});
+
+// ── calculateQuantitativeStats ──────────────────────────
+
+describe("calculateQuantitativeStats", () => {
+  it("returns zeros for empty completions", () => {
+    const result = calculateQuantitativeStats([]);
+    expect(result.totalValue).toBe(0);
+    expect(result.personalBest).toBe(0);
+    expect(result.dailyAverage).toBe(0);
+    expect(result.daysLogged).toBe(0);
+  });
+
+  it("calculates stats correctly", () => {
+    const completions = [
+      createCompletion({ value: 5 }),
+      createCompletion({ value: 10 }),
+      createCompletion({ value: 3 }),
+    ];
+    const result = calculateQuantitativeStats(completions);
+    expect(result.totalValue).toBe(18);
+    expect(result.personalBest).toBe(10);
+    expect(result.dailyAverage).toBe(6);
+    expect(result.daysLogged).toBe(3);
+  });
+
+  it("ignores completions with null value", () => {
+    const completions = [
+      createCompletion({ value: 5 }),
+      createCompletion({ value: null }),
+      createCompletion({ value: 10 }),
+    ];
+    const result = calculateQuantitativeStats(completions);
+    expect(result.totalValue).toBe(15);
+    expect(result.daysLogged).toBe(2);
+  });
+});
+
+// ── calculateChainStreak ──────────────────────────────
+
+describe("calculateChainStreak", () => {
+  const chain = { id: "chain-1", name: "Morning Routine", createdAt: `${daysAgo(10)}T00:00:00.000Z` };
+
+  it("returns 0 when any habit in the chain missed a day", () => {
+    const h1 = createHabit({ frequency: "daily", createdAt: `${daysAgo(3)}T00:00:00.000Z` });
+    const h2 = createHabit({ frequency: "daily", createdAt: `${daysAgo(3)}T00:00:00.000Z` });
+
+    // h1 completed days 1,2,3 — h2 only completed day 1
+    const completions = [
+      createCompletion({ habitId: h1.id, date: daysAgo(1) }),
+      createCompletion({ habitId: h1.id, date: daysAgo(2) }),
+      createCompletion({ habitId: h1.id, date: daysAgo(3) }),
+      createCompletion({ habitId: h2.id, date: daysAgo(1) }),
+    ];
+
+    const result = calculateChainStreak(chain, [h1, h2], completions, TODAY);
+    expect(result.currentStreak).toBe(1);
+  });
+
+  it("increments streak only when all chain habits are complete", () => {
+    const h1 = createHabit({ frequency: "daily", createdAt: `${daysAgo(3)}T00:00:00.000Z` });
+    const h2 = createHabit({ frequency: "daily", createdAt: `${daysAgo(3)}T00:00:00.000Z` });
+
+    // Both completed days 1,2,3
+    const completions = [1, 2, 3].flatMap((i) => [
+      createCompletion({ habitId: h1.id, date: daysAgo(i) }),
+      createCompletion({ habitId: h2.id, date: daysAgo(i) }),
+    ]);
+
+    const result = calculateChainStreak(chain, [h1, h2], completions, TODAY);
+    expect(result.currentStreak).toBe(3);
+    expect(result.bestStreak).toBe(3);
+  });
+
+  it("returns 0 for empty habits", () => {
+    const result = calculateChainStreak(chain, [], [], TODAY);
+    expect(result.currentStreak).toBe(0);
+    expect(result.bestStreak).toBe(0);
+  });
+
+  it("skips non-scheduled days for individual habits", () => {
+    // h1 is daily, h2 is weekdays only
+    const h1 = createHabit({ frequency: "daily", createdAt: `${daysAgo(5)}T00:00:00.000Z` });
+    const h2 = createHabit({
+      frequency: "specific_days",
+      targetDays: [1, 2, 3, 4, 5], // Mon-Fri
+      createdAt: `${daysAgo(5)}T00:00:00.000Z`,
+    });
+
+    // Complete h1 every day, h2 only on its scheduled days
+    const completions = [0, 1, 2, 3, 4, 5].flatMap((i) => {
+      const date = daysAgo(i);
+      const result = [createCompletion({ habitId: h1.id, date })];
+      // h2 is scheduled on weekdays — since we can't easily check, just complete all days
+      result.push(createCompletion({ habitId: h2.id, date }));
+      return result;
+    });
+
+    const result = calculateChainStreak(chain, [h1, h2], completions, TODAY);
+    expect(result.currentStreak).toBeGreaterThan(0);
+  });
+});

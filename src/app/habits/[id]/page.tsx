@@ -1,0 +1,157 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { format, parseISO, subMonths } from "date-fns";
+import { PageContainer } from "@/components/layout/page-container";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/shared/empty-state";
+import { HabitDetailHeader } from "@/components/habits/habit-detail-header";
+import { HabitStatsGrid } from "@/components/habits/habit-stats-grid";
+import { HabitCalendarHeatmap } from "@/components/habits/habit-calendar-heatmap";
+import {
+  LazyHabitMonthlyChart as HabitMonthlyChart,
+  LazyHabitWeeklyPattern as HabitWeeklyPattern,
+} from "@/components/charts/lazy-charts";
+import { HabitRecentHistory } from "@/components/habits/habit-recent-history";
+import { useHabit } from "@/hooks/use-habit";
+import { useHabitStats } from "@/hooks/use-habit-stats";
+import { useCompletionRange } from "@/hooks/use-completions";
+import { useToday } from "@/hooks/use-today";
+import { useSettings } from "@/hooks/use-settings";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
+import { ProgressCardDialog } from "@/components/shared/progress-card-dialog";
+import { calculateAverageEffort } from "@/lib/stats-core";
+import { buildDailyCompletionTrend } from "@/lib/stats-charts";
+import { CalendarDays } from "lucide-react";
+
+export default function HabitDetailPage() {
+  const params = useParams<{ id: string }>();
+  const today = useToday();
+  const { settings } = useSettings();
+
+  const { habit, loading: habitLoading, notFound } = useHabit(params.id);
+  const { stats, loading: statsLoading } = useHabitStats(habit, today);
+
+  const sixMonthsAgo = useMemo(
+    () => format(subMonths(parseISO(today), 6), "yyyy-MM-dd"),
+    [today]
+  );
+  const { completions } = useCompletionRange(sixMonthsAgo, today);
+
+  // Filter completions to this habit only
+  const habitCompletions = useMemo(
+    () => completions.filter((c) => c.habitId === habit?.id),
+    [completions, habit?.id]
+  );
+
+  const averageEffort = useMemo(
+    () => calculateAverageEffort(habitCompletions),
+    [habitCompletions]
+  );
+
+  // Heatmap data for share card (last 30 days)
+  const shareHeatmapData = useMemo(
+    () => buildDailyCompletionTrend(habitCompletions, sixMonthsAgo, today),
+    [habitCompletions, sixMonthsAgo, today]
+  );
+
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const renderShareCard = useCallback(
+    (canvas: HTMLCanvasElement) => {
+      if (!habit) return;
+      import("@/lib/progress-card-renderer").then(({ renderHabitCard }) => {
+        renderHabitCard(canvas, habit, stats, shareHeatmapData);
+      });
+    },
+    [habit, stats, shareHeatmapData]
+  );
+
+  if (habitLoading) {
+    return (
+      <PageContainer>
+        <div className="space-y-6">
+          <Skeleton className="h-6 w-20 rounded-lg" />
+          <Skeleton className="h-1.5 w-16 rounded-full" />
+          <div className="flex gap-3">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-6 w-48 rounded-lg" />
+              <Skeleton className="h-4 w-32 rounded-lg" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (notFound || !habit) {
+    return (
+      <PageContainer>
+        <EmptyState
+          icon={CalendarDays}
+          title="未找到该习惯"
+          description="该习惯不存在或已被删除。"
+          actionLabel="前往习惯列表"
+          actionHref="/habits"
+        />
+      </PageContainer>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+    <PageContainer>
+      <div className="space-y-6">
+        <HabitDetailHeader habit={habit} onShare={() => setShareOpen(true)} />
+
+        <HabitStatsGrid
+          stats={stats}
+          color={habit.color}
+          loading={statsLoading}
+          averageEffort={averageEffort}
+          showCompletionRate={settings?.showCompletionRate ?? true}
+        />
+
+        <HabitCalendarHeatmap
+          habit={habit}
+          completions={habitCompletions}
+          today={today}
+          weekStartsOn={settings?.weekStartsOn}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <HabitMonthlyChart
+            completions={habitCompletions}
+            color={habit.color}
+          />
+          <HabitWeeklyPattern
+            completions={habitCompletions}
+            color={habit.color}
+          />
+        </div>
+
+        <HabitRecentHistory
+          habit={habit}
+          completions={completions}
+          today={today}
+        />
+      </div>
+
+      <ProgressCardDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title="分享习惯卡片"
+        filename={`habitflow-${habit.name.toLowerCase().replace(/\s+/g, "-")}.png`}
+        renderCard={renderShareCard}
+      />
+    </PageContainer>
+    </ErrorBoundary>
+  );
+}

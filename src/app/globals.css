@@ -1,0 +1,422 @@
+/* =====================================================================
+   HabitFlow — global stylesheet (Inkwell Design System)
+
+   Inkwell (Indigo & Cloud) is the single source of styling truth.
+   Vendored files live in ../styles/inkwell/ and are imported in the
+   order Inkwell expects: Tailwind v4 first, then the Inkwell theme
+   bundle (which @imports inkwell-tokens.css unlayered and
+   inkwell-components.css under @layer components).
+
+   This file ONLY contains:
+     • Inkwell imports
+     • A token-alias bridge that re-points legacy `--color-*` names
+       (used throughout components as `bg-surface-paper`, `text-text-primary`,
+       `accent-blue`, etc.) at Inkwell tokens. No new colors are introduced.
+     • App-specific feature animations that don't conflict with Inkwell
+   ===================================================================== */
+
+@import "tailwindcss";
+@import "../styles/inkwell/inkwell-tokens.css";
+@import "../styles/inkwell/inkwell-components.css" layer(components);
+
+/* =====================================================================
+   Inkwell → Tailwind v4 bridge.
+   This block reproduces the @theme aliases, @utility, and
+   @custom-variant declarations from Inkwell's inkwell-theme.css.
+   We inline them here (instead of @import-ing inkwell-theme.css) so
+   the nested Inkwell @imports stay at the top of the cascade — Tailwind
+   v4's PostCSS otherwise hoists them after preflight, triggering CSS
+   "imports must precede rules" warnings.
+   ===================================================================== */
+@theme {
+  --color-ivory: var(--ivory);
+  --color-paper: var(--paper);
+  --color-slate: var(--slate);
+  --color-oat:   var(--oat);
+
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
+  --color-gray-500: var(--gray-500);
+  --color-gray-700: var(--gray-700);
+
+  --color-accent:               var(--accent);
+  --color-accent-d:             var(--accent-d);
+  --color-accent-tint:          var(--accent-tint);
+  --color-accent-focus:         var(--accent-focus-ring);
+  --color-accent-strong-border: var(--accent-strong-border);
+
+  --color-olive:            var(--olive);
+  --color-olive-tint:       var(--olive-tint);
+  --color-rust:             var(--rust);
+  --color-rust-d:           var(--rust-d);
+  --color-rust-tint:        var(--rust-tint);
+  --color-rust-tint-border: var(--rust-tint-border);
+  --color-warning:          var(--warning);
+  --color-warning-dark:     var(--warning-dark);
+  --color-warning-tint:     var(--warning-tint);
+  --color-info:             var(--info);
+  --color-sky:              var(--sky);
+
+  --font-serif: var(--serif);
+  --font-sans:  var(--sans);
+  --font-mono:  var(--mono);
+
+  --text-display: var(--t-display);
+  --text-h1:      var(--t-h1);
+  --text-h2:      var(--t-h2);
+  --text-h3:      var(--t-h3);
+  --text-body:    var(--t-body);
+  --text-small:   var(--t-small);
+  --text-caption: var(--t-caption);
+  --text-eyebrow: var(--t-eyebrow);
+
+  --radius-xs:   var(--r-xs);
+  --radius-sm:   var(--r-sm);
+  --radius-md:   var(--r-md);
+  --radius-lg:   var(--r-lg);
+  --radius-xl:   var(--r-xl);
+  --radius-full: var(--r-pill);
+
+  --container-narrow:  820px;
+  --container-default: 920px;
+  --container-wide:   1120px;
+}
+
+@utility border-hair {
+  border-width: 1.5px;
+}
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* =====================================================================
+   Token alias bridge.
+
+   Inkwell's @theme already exposes its own tokens (bg-paper, text-slate,
+   border-accent, font-serif, ...). The bridge below adds aliases for
+   the *legacy* token names this codebase uses so existing utility
+   classes resolve to Inkwell's palette without rewriting every file.
+
+   The 8-color habit accent palette is collapsed into Inkwell's
+   semantic set per the "one accent only" rule. Some colors look
+   identical (blue/violet → accent family; amber/orange → warning
+   family; rose/pink → rust family); the schema field stays the same
+   but visually we comply with Inkwell.
+   ===================================================================== */
+@theme inline {
+  /* Surfaces */
+  --color-background:        var(--ivory);
+  --color-background-alt:    var(--ivory);
+  --color-surface:           var(--paper);
+  --color-surface-elevated:  var(--paper);
+  --color-surface-strong:    var(--paper);
+  --color-surface-muted:     var(--gray-100);
+  --color-surface-paper:     var(--paper);
+  --color-surface-panel:     var(--paper);
+  --color-surface-overlay:   var(--paper);
+  --color-surface-tint:      var(--gray-100);
+
+  /* Text */
+  --color-text-primary:   var(--slate);
+  --color-text-secondary: var(--gray-700);
+  --color-text-muted:     var(--gray-500);
+
+  /* Borders & focus ring */
+  --color-border:        var(--gray-300);
+  --color-border-subtle: var(--gray-200);
+  --color-border-strong: var(--slate);
+  --color-ring:          var(--accent);
+
+  /* 8-color habit accent palette → Inkwell semantic set
+     (collapses per "one accent only": blue/violet share accent family,
+     amber/orange share warning family, rose/pink share rust family). */
+  --color-accent-blue:    var(--accent);
+  --color-accent-violet:  var(--accent-d);
+  --color-accent-emerald: var(--olive);
+  --color-accent-cyan:    var(--sky);
+  --color-accent-amber:   var(--warning);
+  --color-accent-orange:  var(--warning-dark);
+  --color-accent-rose:    var(--rust);
+  --color-accent-pink:    var(--rust-d);
+
+  /* Semantic */
+  --color-success: var(--olive);
+  --color-warning: var(--warning);
+  --color-error:   var(--rust);
+  --color-info:    var(--info);
+
+  /* Charts — five distinguishable Inkwell hues for Recharts */
+  --color-chart-1: var(--accent);
+  --color-chart-2: var(--olive);
+  --color-chart-3: var(--sky);
+  --color-chart-4: var(--warning);
+  --color-chart-5: var(--rust);
+
+  /* Heatmap — single-hue ramp built from accent + ivory */
+  --color-heatmap-0: var(--gray-100);
+  --color-heatmap-1: color-mix(in srgb, var(--accent) 18%, var(--paper));
+  --color-heatmap-2: color-mix(in srgb, var(--accent) 38%, var(--paper));
+  --color-heatmap-3: color-mix(in srgb, var(--accent) 62%, var(--paper));
+  --color-heatmap-4: var(--accent);
+
+  /* Type families — Inkwell mandates platform fonts only */
+  --font-sans:    var(--sans);
+  --font-display: var(--serif);
+  --font-mono:    var(--mono);
+
+  /* Animation timings */
+  --animate-fast: var(--t-fast) ease;
+  --animate-base: var(--t-base) ease;
+  --animate-slow: var(--t-slow) ease;
+}
+
+/* =====================================================================
+   Bare custom-property aliases — components inline `var(--chart-3)`,
+   `var(--text-muted)`, etc. directly in style objects (Recharts fills,
+   heatmap intensity colors, header accent stripes). These can't go
+   through Tailwind's @theme namespace, so we declare them at :root
+   pointing to Inkwell tokens. Both light + dark mode adapt because
+   the right-hand-side is itself a token that shifts via Inkwell's
+   Pattern B cascade.
+   ===================================================================== */
+:root {
+  /* Habit accent palette (collapsed per "one accent only") */
+  --accent-blue:    var(--accent);
+  --accent-violet:  var(--accent-d);
+  --accent-emerald: var(--olive);
+  --accent-cyan:    var(--sky);
+  --accent-amber:   var(--warning);
+  --accent-orange:  var(--warning-dark);
+  --accent-rose:    var(--rust);
+  --accent-pink:    var(--rust-d);
+
+  /* Recharts series colors */
+  --chart-1: var(--accent);
+  --chart-2: var(--olive);
+  --chart-3: var(--sky);
+  --chart-4: var(--warning);
+  --chart-5: var(--rust);
+
+  /* Heatmap intensity ramp (single-hue accent ramp on paper) */
+  --heatmap-0: var(--gray-100);
+  --heatmap-1: color-mix(in srgb, var(--accent) 18%, var(--paper));
+  --heatmap-2: color-mix(in srgb, var(--accent) 38%, var(--paper));
+  --heatmap-3: color-mix(in srgb, var(--accent) 62%, var(--paper));
+  --heatmap-4: var(--accent);
+
+  /* Legacy surface / text aliases used by inline styles */
+  --surface-paper:    var(--paper);
+  --surface-elevated: var(--paper);
+  --surface-tint:     var(--gray-100);
+  --border-subtle:    var(--gray-200);
+  --text-muted:       var(--gray-500);
+
+  /* Legacy editorial shadows → Inkwell shadows */
+  --shadow-editorial-sm: var(--shadow-sm);
+  --shadow-editorial-md: var(--shadow-md);
+}
+
+/* =====================================================================
+   Body / base — replaces glassmorphism shell with Inkwell flat ivory.
+   Inkwell's components.css already sets these on body, but Tailwind's
+   preflight plus our Tailwind utilities can override; declare again to
+   make the intent explicit.
+   ===================================================================== */
+body {
+  background: var(--ivory);
+  color: var(--slate);
+  font-family: var(--sans);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--accent-tint);
+  color: var(--slate);
+}
+
+/* Headings always use serif per Inkwell typography rules. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--slate);
+}
+
+/* =====================================================================
+   Scrollbar — neutral, no warm browns
+   ===================================================================== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gray-500); }
+
+/* =====================================================================
+   Safe-area helper (used by mobile bottom nav)
+   ===================================================================== */
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* =====================================================================
+   Legacy hf-* helpers — kept as token-only aliases for backward
+   compatibility with feature components that still reference them.
+   No glassmorphism, no gradients, no backdrop-filter. Pure Inkwell
+   surfaces.
+   ===================================================================== */
+.hf-panel,
+.hf-panel-strong,
+.hf-panel-muted,
+.hf-row {
+  background: var(--paper);
+  border: var(--border);
+  border-radius: var(--r-md);
+}
+.hf-panel        { box-shadow: var(--shadow-sm); }
+.hf-panel-strong { box-shadow: var(--shadow-md); }
+.hf-panel-muted  { background: var(--gray-100); }
+.hf-row:hover    { border-color: var(--slate); }
+
+.hf-hero {
+  background: var(--paper);
+  border: var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.hf-kicker {
+  font-family: var(--mono);
+  font-size: var(--t-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* =====================================================================
+   Feature animations — preserved from previous design.
+   These do not introduce new colors or surfaces; they only animate
+   existing properties (transform, opacity, stroke).
+   ===================================================================== */
+@keyframes completion-bounce {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.animate-completion-bounce { animation: completion-bounce 200ms ease-in-out; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 200ms ease-out; }
+
+@keyframes nav-pop {
+  0%   { transform: scale(0.94); }
+  65%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.animate-nav-pop { animation: nav-pop 220ms ease-out; }
+
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-overlay-fade { animation: overlay-fade 200ms ease-out; }
+
+@keyframes cell-fill {
+  0%   { transform: scale(0); }
+  60%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+.animate-cell-fill { animation: cell-fill 200ms ease-out; }
+
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-stagger-in {
+  opacity: 0;
+  animation: stagger-in 300ms ease-out forwards;
+}
+
+/* Skeleton shimmer — falls back to Inkwell's neutral putty ramp.
+   Components calling .animate-shimmer get a token-only gradient. */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--gray-100) 0%,
+    var(--gray-200) 50%,
+    var(--gray-100) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes completion-ripple {
+  0%   { transform: scale(1);     box-shadow: 0 0 0 0  var(--ripple-color, var(--accent-focus-ring)); }
+  50%  { transform: scale(1.15);  box-shadow: 0 0 0 8  transparent; }
+  100% { transform: scale(1);     box-shadow: 0 0 0 10 transparent; }
+}
+.animate-completion-ripple { animation: completion-ripple 400ms ease-out; }
+
+@keyframes ring-draw {
+  from { stroke-dashoffset: var(--ring-circumference); }
+  to   { stroke-dashoffset: var(--ring-target-offset); }
+}
+.animate-ring-draw {
+  animation: ring-draw 800ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translateY(120px) rotate(var(--confetti-rotation, 360deg)) scale(0); opacity: 0; }
+}
+@keyframes confetti-burst {
+  0%   { transform: translate(0, 0) scale(0); opacity: 1; }
+  20%  { transform: translate(var(--confetti-x), var(--confetti-y)) scale(1.2); opacity: 1; }
+  100% { transform: translate(var(--confetti-x), calc(var(--confetti-y) + 60px)) scale(0); opacity: 0; }
+}
+
+@keyframes flame-flicker {
+  0%, 100% { transform: scaleY(1)    scaleX(1);    filter: brightness(1); }
+  25%      { transform: scaleY(1.08) scaleX(0.95); filter: brightness(1.1); }
+  50%      { transform: scaleY(0.94) scaleX(1.04); filter: brightness(0.95); }
+  75%      { transform: scaleY(1.05) scaleX(0.97); filter: brightness(1.05); }
+}
+.animate-flame-flicker {
+  animation: flame-flicker 1.2s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes glow-pulse {
+  0%   { opacity: 0; transform: scale(0.95); }
+  50%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.02); }
+}
+.animate-glow-pulse { animation: glow-pulse 1.2s ease-out; }
+
+/* =====================================================================
+   Reduced motion (Inkwell already covers this in components.css; this
+   block adds the feature-animation-specific keyframes so reduced motion
+   stops them too.)
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .animate-completion-bounce,
+  .animate-fade-in,
+  .animate-nav-pop,
+  .animate-overlay-fade,
+  .animate-cell-fill,
+  .animate-stagger-in,
+  .animate-shimmer,
+  .animate-completion-ripple,
+  .animate-ring-draw,
+  .animate-flame-flicker,
+  .animate-glow-pulse {
+    animation: none !important;
+  }
+}

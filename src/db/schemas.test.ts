@@ -1,0 +1,168 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { habitSchema, habitCompletionSchema, userSettingsSchema } from "./schemas";
+import { createHabit, createCompletion, createSettings, resetFactories } from "@/test/factories";
+
+beforeEach(() => {
+  resetFactories();
+});
+
+describe("habitSchema", () => {
+  it("validates a correct habit", () => {
+    const habit = createHabit();
+    expect(() => habitSchema.parse(habit)).not.toThrow();
+  });
+
+  it("rejects empty name", () => {
+    const habit = createHabit({ name: "" });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+
+  it("rejects name over 100 chars", () => {
+    const habit = createHabit({ name: "a".repeat(101) });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+
+  it("rejects invalid color format", () => {
+    const habit = createHabit({ color: "not-a-color" });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+
+  it("requires targetDays for specific_days frequency", () => {
+    const habit = createHabit({
+      frequency: "specific_days",
+      targetDays: undefined,
+    });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+
+  it("requires targetCount for x_per_week frequency", () => {
+    const habit = createHabit({
+      frequency: "x_per_week",
+      targetCount: undefined,
+    });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+
+  it("accepts valid specific_days with targetDays", () => {
+    const habit = createHabit({
+      frequency: "specific_days",
+      targetDays: [1, 3, 5],
+    });
+    expect(() => habitSchema.parse(habit)).not.toThrow();
+  });
+
+  it("accepts valid timeOfDay values", () => {
+    for (const tod of ["morning", "afternoon", "evening", "anytime"] as const) {
+      const habit = createHabit({ timeOfDay: tod });
+      expect(() => habitSchema.parse(habit)).not.toThrow();
+    }
+  });
+
+  it("accepts habit without timeOfDay (optional)", () => {
+    const habit = createHabit();
+    expect(() => habitSchema.parse(habit)).not.toThrow();
+  });
+
+  it("rejects invalid timeOfDay value", () => {
+    const habit = createHabit({ timeOfDay: "midnight" as "morning" });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+
+  it("accepts valid habitType values", () => {
+    for (const type of ["binary", "quantitative"] as const) {
+      const habit = createHabit({ habitType: type });
+      expect(() => habitSchema.parse(habit)).not.toThrow();
+    }
+  });
+
+  it("accepts quantitative habit with targetValue and unit", () => {
+    const habit = createHabit({
+      habitType: "quantitative",
+      targetValue: 8,
+      unit: "glasses",
+    });
+    expect(() => habitSchema.parse(habit)).not.toThrow();
+  });
+
+  it("rejects negative targetValue", () => {
+    const habit = createHabit({ habitType: "quantitative", targetValue: -1 });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+
+  it("rejects unit over 20 chars", () => {
+    const habit = createHabit({ habitType: "quantitative", unit: "a".repeat(21) });
+    expect(() => habitSchema.parse(habit)).toThrow();
+  });
+});
+
+describe("habitCompletionSchema", () => {
+  it("validates a correct completion", () => {
+    const completion = createCompletion();
+    expect(() => habitCompletionSchema.parse(completion)).not.toThrow();
+  });
+
+  it("rejects invalid date format", () => {
+    const completion = createCompletion({ date: "02/15/2026" });
+    expect(() => habitCompletionSchema.parse(completion)).toThrow();
+  });
+
+  it("rejects note over 250 chars", () => {
+    const completion = createCompletion({ note: "a".repeat(251) });
+    expect(() => habitCompletionSchema.parse(completion)).toThrow();
+  });
+
+  it("rejects impossible calendar dates", () => {
+    // Feb 30 doesn't exist
+    const completion = createCompletion({ date: "2026-02-30" });
+    expect(() => habitCompletionSchema.parse(completion)).toThrow();
+  });
+
+  it("rejects month 13", () => {
+    const completion = createCompletion({ date: "2026-13-01" });
+    expect(() => habitCompletionSchema.parse(completion)).toThrow();
+  });
+
+  it("accepts valid effort values (1-5)", () => {
+    for (const effort of [1, 2, 3, 4, 5] as const) {
+      const completion = createCompletion({ effort });
+      expect(() => habitCompletionSchema.parse(completion)).not.toThrow();
+    }
+  });
+
+  it("accepts null effort", () => {
+    const completion = createCompletion({ effort: null });
+    expect(() => habitCompletionSchema.parse(completion)).not.toThrow();
+  });
+
+  it("accepts undefined effort (optional)", () => {
+    const completion = createCompletion();
+    expect(() => habitCompletionSchema.parse(completion)).not.toThrow();
+  });
+
+  it("rejects effort values outside 1-5", () => {
+    const completion = createCompletion({ effort: 0 as 1 });
+    expect(() => habitCompletionSchema.parse(completion)).toThrow();
+  });
+
+  it("rejects effort value of 6", () => {
+    const completion = createCompletion({ effort: 6 as 5 });
+    expect(() => habitCompletionSchema.parse(completion)).toThrow();
+  });
+});
+
+describe("userSettingsSchema", () => {
+  it("validates correct settings", () => {
+    const settings = createSettings();
+    expect(() => userSettingsSchema.parse(settings)).not.toThrow();
+  });
+
+  it("rejects invalid theme", () => {
+    const settings = createSettings({ theme: "purple" as "light" });
+    expect(() => userSettingsSchema.parse(settings)).toThrow();
+  });
+
+  it("rejects invalid weekStartsOn", () => {
+    const settings = createSettings({ weekStartsOn: 3 as 0 });
+    expect(() => userSettingsSchema.parse(settings)).toThrow();
+  });
+});
