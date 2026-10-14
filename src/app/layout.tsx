@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: "HabitFlow",
   description:
     "用美观、私密的习惯追踪器记录你的每日习惯。",
-  manifest: "/manifest.json",
+  manifest: "/daily-checklist/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
